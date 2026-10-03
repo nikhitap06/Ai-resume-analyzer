@@ -20,6 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
+
 st.title("AI Resume Analyzer")
 
 st.caption(
@@ -27,6 +28,10 @@ st.caption(
     "semantic scoring, and grounded recommendations."
 )
 
+
+# =========================================================
+# SIDEBAR
+# =========================================================
 
 with st.sidebar:
 
@@ -44,7 +49,9 @@ with st.sidebar:
 
     jd = st.text_area(
         "Paste job description",
-        value=jd_file.getvalue().decode("utf-8") if jd_file else "",
+        value=jd_file.getvalue().decode("utf-8")
+        if jd_file
+        else "",
         height=260
     )
 
@@ -55,6 +62,10 @@ with st.sidebar:
     )
 
 
+# =========================================================
+# ANALYSIS
+# =========================================================
+
 if run:
 
     if not uploaded:
@@ -63,7 +74,9 @@ if run:
 
     elif not jd.strip():
 
-        st.error("Please paste or upload a job description.")
+        st.error(
+            "Please paste or upload a job description."
+        )
 
     else:
 
@@ -86,71 +99,101 @@ if run:
                 )
 
 
+            # =================================================
+            # BASIC RESULT DATA
+            # =================================================
+
+            match = result["match"]
+            ats = result["ats"]
+
             st.success(
                 f"Analyzed {resume.filename} "
                 f"({resume.pages} page(s))."
             )
 
 
-            match = result["match"]
-            ats = result["ats"]
-
-
-            # =========================
-            # TOP SCORE CARDS
-            # =========================
+            # =================================================
+            # TOP METRICS
+            # =================================================
 
             columns = st.columns(4)
 
             columns[0].metric(
-                "Overall match",
+                "Overall Match",
                 f'{match["overall_match"]}%'
             )
 
             columns[1].metric(
-                "Semantic match",
+                "Semantic Match",
                 f'{match["semantic_match"]}%'
             )
 
             columns[2].metric(
-                "ATS score",
+                "ATS Score",
                 f'{ats["score"]}/100'
             )
 
             columns[3].metric(
-                "Retrieved chunks",
-                len(result["retrieved"])
+                "Retrieved Chunks",
+                len(result.get("retrieved", []))
             )
 
 
             st.info(
-                "The match score is specific to the job description you "
-                "provided. A lower score means the resume has fewer "
+                "The match score is specific to the job description "
+                "you provided. A lower score means the resume has fewer "
                 "overlaps with this particular role; it does not mean "
                 "the resume is generally weak."
             )
 
 
-            # =========================
+            # =================================================
             # SCORE BREAKDOWN
-            # =========================
+            # =================================================
 
             st.subheader("Score Breakdown")
 
-            score_data = {
-                "Metric": [
-                    "Technical skill",
-                    "Experience",
-                    "Project relevance",
+            score_metrics = [
+                "Technical Skill",
+                "Experience",
+                "Project Relevance"
+            ]
+
+            score_values = [
+                match["technical_skill_match"],
+                match["experience_match"],
+                match["project_relevance"]
+            ]
+
+
+            # Education can now be None when
+            # the job description does not specify
+            # an education requirement.
+
+            education_score = match.get(
+                "education_match"
+            )
+
+
+            if education_score is not None:
+
+                score_metrics.append(
                     "Education"
-                ],
+                )
+
+                score_values.append(
+                    education_score
+                )
+
+
+            score_data = {
+                "Metric": score_metrics,
                 "Score": [
-                    match["technical_skill_match"],
-                    match["experience_match"],
-                    match["project_relevance"],
-                    match["education_match"]
+                    f"{score}%"
+                    for score in score_values
                 ]
             }
+
 
             st.dataframe(
                 score_data,
@@ -159,16 +202,25 @@ if run:
             )
 
 
-            # =========================
-            # SKILL ANALYSIS + ATS
-            # =========================
+            if education_score is None:
+
+                st.caption(
+                    "Education requirement was not specified "
+                    "in the job description, so it was not used "
+                    "as a scoring factor."
+                )
+
+
+            # =================================================
+            # SKILLS + ATS
+            # =================================================
 
             col1, col2 = st.columns(2)
 
 
-            # =========================
+            # =================================================
             # SKILL ANALYSIS
-            # =========================
+            # =================================================
 
             with col1:
 
@@ -190,6 +242,7 @@ if run:
                     []
                 )
 
+
                 st.write(
                     "**Matching:** " +
                     (
@@ -198,6 +251,7 @@ if run:
                         else "None detected"
                     )
                 )
+
 
                 st.write(
                     "**Missing:** " +
@@ -208,8 +262,9 @@ if run:
                     )
                 )
 
+
                 st.write(
-                    "**Job skills detected:** " +
+                    "**Job Skills Detected:** " +
                     (
                         ", ".join(detected)
                         if detected
@@ -218,18 +273,20 @@ if run:
                 )
 
 
-            # =========================
+            # =================================================
             # ATS CHECKS
-            # =========================
+            # =================================================
 
             with col2:
 
                 st.subheader("ATS Checks")
 
+
                 st.metric(
                     "Overall ATS Score",
                     f'{ats["score"]}/100'
                 )
+
 
                 ats_table = {
                     "Check": [
@@ -239,6 +296,7 @@ if run:
                         "Contact Information",
                         "Job Relevance"
                     ],
+
                     "Score": [
                         f'{ats.get("keyword_coverage", 0)}%',
                         f'{ats.get("required_sections", 0)}%',
@@ -248,20 +306,68 @@ if run:
                     ]
                 }
 
+
                 st.dataframe(
                     ats_table,
                     hide_index=True,
                     use_container_width=True
                 )
 
+
+                # =================================================
+                # CONTACT DETAILS
+                # =================================================
+
+                contact_details = ats.get(
+                    "contact_details",
+                    {}
+                )
+
+
+                if contact_details:
+
+                    st.markdown(
+                        "**Contact Information Detected**"
+                    )
+
+
+                    for field, detected in contact_details.items():
+
+                        label = field.replace(
+                            "_",
+                            " "
+                        ).title()
+
+
+                        if detected:
+
+                            st.write(
+                                f"✓ {label}"
+                            )
+
+                        else:
+
+                            st.write(
+                                f"✗ {label}"
+                            )
+
+
+                # =================================================
+                # ATS NOTES
+                # =================================================
+
                 notes = ats.get(
                     "notes",
                     []
                 )
 
+
                 if notes:
 
-                    st.markdown("**ATS Improvements**")
+                    st.markdown(
+                        "**ATS Improvements**"
+                    )
+
 
                     for note in notes:
 
@@ -270,26 +376,32 @@ if run:
                         )
 
 
-            # =========================
+            # =================================================
             # AI RECOMMENDATIONS
-            # =========================
+            # =================================================
 
-            st.subheader("AI Recommendations")
+            st.subheader(
+                "AI Recommendations"
+            )
+
 
             recommendations = result.get(
                 "recommendations",
                 {}
             )
 
+
             st.info(
                 "Generation mode: "
                 f'{recommendations.get("mode", "LLM")}'
             )
 
+
             summary = recommendations.get(
                 "summary",
                 ""
             )
+
 
             if summary:
 
@@ -297,11 +409,21 @@ if run:
 
 
             recommendation_titles = {
-                "strengths": "Strengths",
-                "skill_gaps": "Skill Gaps",
-                "ats_improvements": "ATS Improvements",
-                "resume_recommendations": "Resume Recommendations",
-                "project_recommendations": "Project Recommendations"
+
+                "strengths":
+                    "Strengths",
+
+                "skill_gaps":
+                    "Skill Gaps",
+
+                "ats_improvements":
+                    "ATS Improvements",
+
+                "resume_recommendations":
+                    "Resume Recommendations",
+
+                "project_recommendations":
+                    "Project Recommendations"
             }
 
 
@@ -312,11 +434,13 @@ if run:
                     []
                 )
 
+
                 if values:
 
                     st.markdown(
                         f"**{title}**"
                     )
+
 
                     for value in values:
 
@@ -325,13 +449,14 @@ if run:
                         )
 
 
-            # =========================
+            # =================================================
             # RAG TRANSPARENCY
-            # =========================
+            # =================================================
 
             st.subheader(
                 "Retrieved Context — RAG Transparency"
             )
+
 
             retrieved = result.get(
                 "retrieved",
@@ -339,7 +464,7 @@ if run:
             )
 
 
-            # Remove duplicate retrieved chunks
+            # Remove duplicate chunks
 
             unique_retrieved = []
 
@@ -353,20 +478,24 @@ if run:
                     {}
                 )
 
+
                 source = metadata.get(
                     "source",
                     "Unknown source"
                 )
+
 
                 text = item.get(
                     "text",
                     ""
                 )
 
+
                 key = (
                     source,
                     text
                 )
+
 
                 if key not in seen:
 
@@ -383,6 +512,7 @@ if run:
                     "No retrieved context available."
                 )
 
+
             else:
 
                 for item in unique_retrieved:
@@ -392,15 +522,18 @@ if run:
                         {}
                     )
 
+
                     source = metadata.get(
                         "source",
                         "Unknown source"
                     )
 
+
                     section = metadata.get(
                         "section",
                         ""
                     )
+
 
                     similarity = item.get(
                         "similarity",
@@ -418,6 +551,7 @@ if run:
                                 section
                             )
 
+
                         st.write(
                             item.get(
                                 "text",
@@ -426,15 +560,16 @@ if run:
                         )
 
 
-            # =========================
+            # =================================================
             # DOWNLOAD REPORT
-            # =========================
+            # =================================================
 
             report = generate_report(
                 resume,
                 job,
                 result
             )
+
 
             st.download_button(
                 "Download Analysis Report",
@@ -444,11 +579,16 @@ if run:
             )
 
 
+        # =====================================================
+        # ERROR HANDLING
+        # =====================================================
+
         except ModuleNotFoundError as e:
 
             st.error(
                 f"Missing Python package: {e.name}"
             )
+
 
             st.code(
                 f"python -m pip install {e.name}",
@@ -463,10 +603,14 @@ if run:
             )
 
 
+# =========================================================
+# INITIAL SCREEN
+# =========================================================
+
 else:
 
     st.info(
         "Upload a resume and paste a target job description "
-        "to begin. Uploaded content is processed in memory and "
-        "is not written to disk by the app."
+        "to begin. Uploaded content is processed in memory "
+        "and is not written to disk by the app."
     )
