@@ -29,10 +29,6 @@ st.caption(
 )
 
 
-# =========================================================
-# SIDEBAR
-# =========================================================
-
 with st.sidebar:
 
     st.header("Inputs")
@@ -49,9 +45,11 @@ with st.sidebar:
 
     jd = st.text_area(
         "Paste job description",
-        value=jd_file.getvalue().decode("utf-8")
-        if jd_file
-        else "",
+        value=(
+            jd_file.getvalue().decode("utf-8")
+            if jd_file
+            else ""
+        ),
         height=260
     )
 
@@ -62,15 +60,13 @@ with st.sidebar:
     )
 
 
-# =========================================================
-# ANALYSIS
-# =========================================================
-
 if run:
 
     if not uploaded:
 
-        st.error("Please upload a PDF resume.")
+        st.error(
+            "Please upload a PDF resume."
+        )
 
     elif not jd.strip():
 
@@ -91,7 +87,9 @@ if run:
                     uploaded.name
                 )
 
-                job = parse_job_description(jd)
+                job = parse_job_description(
+                    jd
+                )
 
                 result = analyze(
                     resume,
@@ -99,12 +97,59 @@ if run:
                 )
 
 
-            # =================================================
-            # BASIC RESULT DATA
-            # =================================================
-
             match = result["match"]
+
             ats = result["ats"]
+
+            retrieved = result.get(
+                "retrieved",
+                []
+            )
+
+
+            # ================================================
+            # REMOVE DUPLICATE RETRIEVED CHUNKS
+            # ================================================
+
+            unique_retrieved = []
+
+            seen = set()
+
+
+            for item in retrieved:
+
+                metadata = item.get(
+                    "metadata",
+                    {}
+                )
+
+                source = metadata.get(
+                    "source",
+                    "Unknown source"
+                )
+
+                text = item.get(
+                    "text",
+                    ""
+                )
+
+                key = (
+                    source,
+                    text
+                )
+
+                if key not in seen:
+
+                    seen.add(key)
+
+                    unique_retrieved.append(
+                        item
+                    )
+
+
+            # ================================================
+            # SUCCESS MESSAGE
+            # ================================================
 
             st.success(
                 f"Analyzed {resume.filename} "
@@ -112,30 +157,34 @@ if run:
             )
 
 
-            # =================================================
+            # ================================================
             # TOP METRICS
-            # =================================================
+            # ================================================
 
             columns = st.columns(4)
+
 
             columns[0].metric(
                 "Overall Match",
                 f'{match["overall_match"]}%'
             )
 
+
             columns[1].metric(
                 "Semantic Match",
                 f'{match["semantic_match"]}%'
             )
+
 
             columns[2].metric(
                 "ATS Score",
                 f'{ats["score"]}/100'
             )
 
+
             columns[3].metric(
                 "Retrieved Chunks",
-                len(result.get("retrieved", []))
+                len(unique_retrieved)
             )
 
 
@@ -147,11 +196,14 @@ if run:
             )
 
 
-            # =================================================
+            # ================================================
             # SCORE BREAKDOWN
-            # =================================================
+            # ================================================
 
-            st.subheader("Score Breakdown")
+            st.subheader(
+                "Score Breakdown"
+            )
+
 
             score_metrics = [
                 "Technical Skill",
@@ -159,16 +211,13 @@ if run:
                 "Project Relevance"
             ]
 
+
             score_values = [
                 match["technical_skill_match"],
                 match["experience_match"],
                 match["project_relevance"]
             ]
 
-
-            # Education can now be None when
-            # the job description does not specify
-            # an education requirement.
 
             education_score = match.get(
                 "education_match"
@@ -188,6 +237,7 @@ if run:
 
             score_data = {
                 "Metric": score_metrics,
+
                 "Score": [
                     f"{score}%"
                     for score in score_values
@@ -211,30 +261,35 @@ if run:
                 )
 
 
-            # =================================================
-            # SKILLS + ATS
-            # =================================================
+            # ================================================
+            # SKILL ANALYSIS + ATS
+            # ================================================
 
             col1, col2 = st.columns(2)
 
 
-            # =================================================
+            # ================================================
             # SKILL ANALYSIS
-            # =================================================
+            # ================================================
 
             with col1:
 
-                st.subheader("Skill Analysis")
+                st.subheader(
+                    "Skill Analysis"
+                )
+
 
                 matching = match.get(
                     "matching_skills",
                     []
                 )
 
+
                 missing = match.get(
                     "missing_skills",
                     []
                 )
+
 
                 detected = getattr(
                     job,
@@ -273,13 +328,15 @@ if run:
                 )
 
 
-            # =================================================
+            # ================================================
             # ATS CHECKS
-            # =================================================
+            # ================================================
 
             with col2:
 
-                st.subheader("ATS Checks")
+                st.subheader(
+                    "ATS Checks"
+                )
 
 
                 st.metric(
@@ -314,9 +371,9 @@ if run:
                 )
 
 
-                # =================================================
-                # CONTACT DETAILS
-                # =================================================
+                # ============================================
+                # CONTACT INFORMATION
+                # ============================================
 
                 contact_details = ats.get(
                     "contact_details",
@@ -352,9 +409,9 @@ if run:
                             )
 
 
-                # =================================================
-                # ATS NOTES
-                # =================================================
+                # ============================================
+                # ATS IMPROVEMENTS
+                # ============================================
 
                 notes = ats.get(
                     "notes",
@@ -376,9 +433,9 @@ if run:
                         )
 
 
-            # =================================================
+            # ================================================
             # AI RECOMMENDATIONS
-            # =================================================
+            # ================================================
 
             st.subheader(
                 "AI Recommendations"
@@ -405,7 +462,9 @@ if run:
 
             if summary:
 
-                st.write(summary)
+                st.write(
+                    summary
+                )
 
 
             recommendation_titles = {
@@ -449,61 +508,13 @@ if run:
                         )
 
 
-            # =================================================
+            # ================================================
             # RAG TRANSPARENCY
-            # =================================================
+            # ================================================
 
             st.subheader(
                 "Retrieved Context — RAG Transparency"
             )
-
-
-            retrieved = result.get(
-                "retrieved",
-                []
-            )
-
-
-            # Remove duplicate chunks
-
-            unique_retrieved = []
-
-            seen = set()
-
-
-            for item in retrieved:
-
-                metadata = item.get(
-                    "metadata",
-                    {}
-                )
-
-
-                source = metadata.get(
-                    "source",
-                    "Unknown source"
-                )
-
-
-                text = item.get(
-                    "text",
-                    ""
-                )
-
-
-                key = (
-                    source,
-                    text
-                )
-
-
-                if key not in seen:
-
-                    seen.add(key)
-
-                    unique_retrieved.append(
-                        item
-                    )
 
 
             if not unique_retrieved:
@@ -560,9 +571,9 @@ if run:
                         )
 
 
-            # =================================================
+            # ================================================
             # DOWNLOAD REPORT
-            # =================================================
+            # ================================================
 
             report = generate_report(
                 resume,
@@ -578,10 +589,6 @@ if run:
                 "text/markdown"
             )
 
-
-        # =====================================================
-        # ERROR HANDLING
-        # =====================================================
 
         except ModuleNotFoundError as e:
 
@@ -603,14 +610,10 @@ if run:
             )
 
 
-# =========================================================
-# INITIAL SCREEN
-# =========================================================
-
 else:
 
     st.info(
         "Upload a resume and paste a target job description "
         "to begin. Uploaded content is processed in memory "
-        "and is not written to disk by the app."
+        "and is not written to disk."
     )
