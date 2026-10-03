@@ -1,5 +1,4 @@
 import re
-import numpy as np
 from .embeddings import EmbeddingModel, cosine_similarity
 
 
@@ -14,13 +13,9 @@ def _normalize_skill(skill):
         "scikit learn": "scikit-learn",
         "scikitlearn": "scikit-learn",
         "natural language processing": "nlp",
-        "machine learning": "machine learning",
-        "artificial intelligence": "artificial intelligence",
-        "power bi": "power bi",
         "ms excel": "excel",
         "microsoft excel": "excel",
-        "pytorch": "pytorch",
-        "tensorflow": "tensorflow",
+        "powerbi": "power bi",
         "python programming": "python"
     }
 
@@ -36,27 +31,30 @@ def _education_level(text):
             r"\bdoctorate\b",
             r"\bdoctoral\b"
         ],
+
         "master": [
-            r"\bm\.?tech\b",
-            r"\bm\.?e\b",
+            r"\bm\.?\s*tech\b",
+            r"\bm\.?\s*e\b",
             r"\bmca\b",
             r"\bmba\b",
             r"\bmaster(?:'s)?\b",
             r"\bpostgraduate\b"
         ],
+
         "bachelor": [
-            r"\bb\.?tech\b",
-            r"\bb\.?e\b",
+            r"\bb\.?\s*tech\b",
+            r"\bb\.?\s*e\b",
             r"\bbca\b",
             r"\bbba\b",
             r"\bbachelor(?:'s)?\b",
-            r"\bundergraduate\b",
-            r"\bdegree\b"
+            r"\bundergraduate\b"
         ]
     }
 
     for level, values in patterns.items():
+
         for pattern in values:
+
             if re.search(pattern, text):
                 return level
 
@@ -64,38 +62,60 @@ def _education_level(text):
 
 
 def _job_requires_education(job_text):
+
     text = (job_text or "").lower()
 
-    education_terms = [
-        "bachelor",
-        "bachelor's",
-        "b.tech",
-        "btech",
-        "b.e.",
-        "b.e",
-        "undergraduate",
-        "master",
-        "master's",
-        "m.tech",
-        "mtech",
-        "m.e.",
-        "m.e",
-        "postgraduate",
-        "phd",
-        "doctorate",
-        "degree"
+    education_patterns = [
+
+        r"\bbachelor(?:'s)?\s+(?:degree|in)\b",
+
+        r"\bb\.?\s*tech\b",
+
+        r"\bb\.?\s*e\b",
+
+        r"\bbtech\b",
+
+        r"\bm\.?\s*tech\b",
+
+        r"\bmtech\b",
+
+        r"\bm\.?\s*e\b",
+
+        r"\bmaster(?:'s)?\s+(?:degree|in)\b",
+
+        r"\bundergraduate\s+degree\b",
+
+        r"\bpostgraduate\s+degree\b",
+
+        r"\bph\.?d\b",
+
+        r"\bdoctorate\b"
     ]
 
-    return any(term in text for term in education_terms)
+    return any(
+        re.search(
+            pattern,
+            text
+        )
+        for pattern in education_patterns
+    )
 
 
-def _education_match(resume_text, job_text):
+def _education_match(
+    resume_text,
+    job_text
+):
+
     if not _job_requires_education(job_text):
+
         return None
 
-    resume_level = _education_level(resume_text)
+    resume_level = _education_level(
+        resume_text
+    )
 
     if resume_level is None:
+
         return 0.0
 
     job_text = job_text.lower()
@@ -104,11 +124,17 @@ def _education_match(resume_text, job_text):
         term in job_text
         for term in [
             "phd",
+            "ph.d",
             "doctorate",
             "doctoral"
         ]
     ):
-        return 100.0 if resume_level == "phd" else 0.0
+
+        return (
+            100.0
+            if resume_level == "phd"
+            else 0.0
+        )
 
     if any(
         term in job_text
@@ -117,12 +143,20 @@ def _education_match(resume_text, job_text):
             "master's",
             "m.tech",
             "mtech",
-            "m.e.",
             "m.e",
+            "m.e.",
             "postgraduate"
         ]
     ):
-        return 100.0 if resume_level in ["master", "phd"] else 0.0
+
+        return (
+            100.0
+            if resume_level in [
+                "master",
+                "phd"
+            ]
+            else 0.0
+        )
 
     if any(
         term in job_text
@@ -131,18 +165,27 @@ def _education_match(resume_text, job_text):
             "bachelor's",
             "b.tech",
             "btech",
-            "b.e.",
             "b.e",
-            "undergraduate",
-            "degree"
+            "b.e.",
+            "undergraduate"
         ]
     ):
-        return 100.0 if resume_level in ["bachelor", "master", "phd"] else 0.0
+
+        return (
+            100.0
+            if resume_level in [
+                "bachelor",
+                "master",
+                "phd"
+            ]
+            else 0.0
+        )
 
     return None
 
 
 def _experience_score(resume_text):
+
     text = (resume_text or "").lower()
 
     experience_terms = [
@@ -158,7 +201,8 @@ def _experience_score(resume_text):
     ]
 
     matches = sum(
-        1 for term in experience_terms
+        1
+        for term in experience_terms
         if term in text
     )
 
@@ -171,8 +215,15 @@ def _experience_score(resume_text):
     return 100.0
 
 
-def _project_score(resume_text, job_text, embedder):
-    resume_lower = (resume_text or "").lower()
+def _project_score(
+    resume_text,
+    job_text,
+    embedder
+):
+
+    resume_lower = (
+        resume_text or ""
+    ).lower()
 
     project_terms = [
         "project",
@@ -190,6 +241,7 @@ def _project_score(resume_text, job_text, embedder):
     )
 
     if not project_present:
+
         return 0.0
 
     resume_vector = embedder.encode(
@@ -205,7 +257,10 @@ def _project_score(resume_text, job_text, embedder):
         job_vector
     )
 
-    similarity = max(0, similarity)
+    similarity = max(
+        0,
+        similarity
+    )
 
     return _pct(similarity)
 
@@ -218,10 +273,18 @@ def calculate_similarity(
     embedder=None
 ):
 
-    embedder = embedder or EmbeddingModel()
+    embedder = (
+        embedder
+        or EmbeddingModel()
+    )
 
-    resume_text = resume_text or ""
-    job_text = job_text or ""
+    resume_text = (
+        resume_text or ""
+    )
+
+    job_text = (
+        job_text or ""
+    )
 
     vectors = embedder.encode(
         [
@@ -241,40 +304,51 @@ def calculate_similarity(
 
     resume_skills_normalized = {
         _normalize_skill(skill)
-        for skill in (resume_skills or [])
+        for skill in (
+            resume_skills or []
+        )
     }
 
     job_skills_normalized = {
         _normalize_skill(skill)
-        for skill in (job_skills or [])
+        for skill in (
+            job_skills or []
+        )
     }
 
     if job_skills_normalized:
 
         matching_skills = (
-            resume_skills_normalized &
+            resume_skills_normalized
+            &
             job_skills_normalized
         )
 
         technical = _pct(
-            len(matching_skills) /
+            len(matching_skills)
+            /
             len(job_skills_normalized)
         )
 
         missing_skills = (
-            job_skills_normalized -
+            job_skills_normalized
+            -
             resume_skills_normalized
         )
 
     else:
 
         matching_skills = set()
+
         missing_skills = set()
+
         technical = 0.0
+
 
     experience = _experience_score(
         resume_text
     )
+
 
     project = _project_score(
         resume_text,
@@ -282,10 +356,12 @@ def calculate_similarity(
         embedder
     )
 
+
     education = _education_match(
         resume_text,
         job_text
     )
+
 
     education_for_score = (
         education
@@ -293,57 +369,86 @@ def calculate_similarity(
         else 0.0
     )
 
-    weights = {
-        "semantic": 0.45,
-        "technical": 0.30,
-        "experience": 0.10,
-        "project": 0.10,
-        "education": 0.05
-    }
 
-    active_weights = dict(weights)
+    semantic_weight = 0.45
+    technical_weight = 0.30
+    experience_weight = 0.10
+    project_weight = 0.10
+    education_weight = 0.05
+
 
     if education is None:
-        active_weights.pop("education")
 
-    total_weight = sum(
-        active_weights.values()
-    )
-
-    overall = (
-        weights["semantic"] * semantic +
-        weights["technical"] * technical +
-        weights["experience"] * experience +
-        weights["project"] * project +
-        (
-            weights["education"] *
-            education_for_score
+        total_weight = (
+            semantic_weight
+            +
+            technical_weight
+            +
+            experience_weight
+            +
+            project_weight
         )
-    )
 
-    if education is None:
         overall = (
-            weights["semantic"] * semantic +
-            weights["technical"] * technical +
-            weights["experience"] * experience +
-            weights["project"] * project
+            semantic_weight * semantic
+            +
+            technical_weight * technical
+            +
+            experience_weight * experience
+            +
+            project_weight * project
+        ) / total_weight
+
+    else:
+
+        total_weight = (
+            semantic_weight
+            +
+            technical_weight
+            +
+            experience_weight
+            +
+            project_weight
+            +
+            education_weight
         )
+
+        overall = (
+            semantic_weight * semantic
+            +
+            technical_weight * technical
+            +
+            experience_weight * experience
+            +
+            project_weight * project
+            +
+            education_weight * education_for_score
+        ) / total_weight
+
 
     overall = round(
-        overall / total_weight,
+        overall,
         1
     )
 
+
     return {
         "semantic_match": semantic,
+
         "technical_skill_match": technical,
+
         "experience_match": experience,
+
         "project_relevance": project,
+
         "education_match": education,
+
         "overall_match": overall,
+
         "matching_skills": sorted(
             matching_skills
         ),
+
         "missing_skills": sorted(
             missing_skills
         )
